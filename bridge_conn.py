@@ -802,7 +802,6 @@ async def talkdesk_ws(ws: WebSocket):
 async def call_pipecat_stat_internal(call_id: str, interaction_id: str) -> Optional[Dict[str, Any]]:
     """Chiama il servizio di statistiche Pipecat (se implementato)"""
     try:
-        # Per ora restituisce dati di default
         # Puoi implementare un endpoint nel tuo server Pipecat per ottenere statistiche
         return {
             "success": True,
