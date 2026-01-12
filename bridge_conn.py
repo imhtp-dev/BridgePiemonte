@@ -23,9 +23,9 @@ import aiohttp
 
 ACTIVE_SESSIONS: Dict[str, "BridgeSession"] = {}
 
-##############################################
+#############################################
 # Database Configuration (PostgreSQL/Supabase)
-##############################################
+#############################################
 import asyncpg
 from datetime import datetime
 
