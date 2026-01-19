@@ -95,6 +95,7 @@ async def save_call_to_supabase(
             duration_seconds,
             cost,
             llm_token,
+            call_type,
             patient_first_name,
             patient_surname,
             patient_dob,
@@ -121,7 +122,8 @@ async def save_call_to_supabase(
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
             $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
-            $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
+            $31, $32, $33, $34, $35, $36, $37, $38, $39, $40,
+            $41
         )
         ON CONFLICT (call_id) DO NOTHING
         """
@@ -146,28 +148,29 @@ async def save_call_to_supabase(
             None,                                             # $16 duration_seconds (null until call ends)
             None,                                             # $17 cost (null until call ends)
             0,                                                # $18 llm_token (default 0)
-            "N/A",                                            # $19 patient_first_name
-            "N/A",                                            # $20 patient_surname
-            "N/A",                                            # $21 patient_dob
-            "N/A",                                            # $22 patient_gender
-            "N/A",                                            # $23 patient_address
-            None,                                             # $24 selected_services (JSONB, null)
-            None,                                             # $25 search_terms_used (JSONB, null)
-            "N/A",                                            # $26 selected_center_uuid
-            "N/A",                                            # $27 selected_center_name
-            "N/A",                                            # $28 selected_center_address
-            "N/A",                                            # $29 selected_center_city
-            None,                                             # $30 booked_slots (JSONB, null)
-            "N/A",                                            # $31 preferred_date
-            "N/A",                                            # $32 preferred_time
-            None,                                             # $33 appointment_datetime (timestamp, null)
-            "N/A",                                            # $34 booking_code
-            None,                                             # $35 total_booking_cost (numeric, null)
-            False,                                            # $36 is_cerba_member (boolean, default false)
-            False,                                            # $37 reminder_authorization (boolean, default false)
-            False,                                            # $38 marketing_authorization (boolean, default false)
-            "N/A",                                            # $39 transfer_reason
-            None                                              # $40 transfer_timestamp (timestamp, null)
+            "N/A",                                            # $19 call_type (booking/booking_incomplete/info)
+            "N/A",                                            # $20 patient_first_name
+            "N/A",                                            # $21 patient_surname
+            "N/A",                                            # $22 patient_dob
+            "N/A",                                            # $23 patient_gender
+            "N/A",                                            # $24 patient_address
+            None,                                             # $25 selected_services (JSONB, null)
+            None,                                             # $26 search_terms_used (JSONB, null)
+            "N/A",                                            # $27 selected_center_uuid
+            "N/A",                                            # $28 selected_center_name
+            "N/A",                                            # $29 selected_center_address
+            "N/A",                                            # $30 selected_center_city
+            None,                                             # $31 booked_slots (JSONB, null)
+            "N/A",                                            # $32 preferred_date
+            "N/A",                                            # $33 preferred_time
+            None,                                             # $34 appointment_datetime (timestamp, null)
+            "N/A",                                            # $35 booking_code
+            None,                                             # $36 total_booking_cost (numeric, null)
+            False,                                            # $37 is_cerba_member (boolean, default false)
+            False,                                            # $38 reminder_authorization (boolean, default false)
+            False,                                            # $39 marketing_authorization (boolean, default false)
+            "N/A",                                            # $40 transfer_reason
+            None                                              # $41 transfer_timestamp (timestamp, null)
         )
 
         logger.info(f"✅ Supabase: Initial tb_stat row created with ALL fields - call_id: {call_id}, "
