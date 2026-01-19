@@ -39,6 +39,7 @@ async def save_call_to_supabase(
     """
     Create initial tb_stat row in Supabase PostgreSQL
     This row will be updated by Pipecat on call end
+    ALL fields are initialized to 'N/A' or appropriate defaults
     """
     connection = None
     try:
@@ -72,7 +73,8 @@ async def save_call_to_supabase(
             timeout=10
         )
 
-        # Insert initial row with default N/A values (will be updated by Pipecat if call proceeds)
+        # Insert initial row with ALL fields set to 'N/A' or appropriate defaults
+        # Will be updated by Pipecat on call end
         query = """
         INSERT INTO tb_stat (
             call_id,
@@ -88,30 +90,87 @@ async def save_call_to_supabase(
             motivazione,
             patient_intent,
             transcript,
-            region
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            region,
+            ended_at,
+            duration_seconds,
+            cost,
+            llm_token,
+            patient_first_name,
+            patient_surname,
+            patient_dob,
+            patient_gender,
+            patient_address,
+            selected_services,
+            search_terms_used,
+            selected_center_uuid,
+            selected_center_name,
+            selected_center_address,
+            selected_center_city,
+            booked_slots,
+            preferred_date,
+            preferred_time,
+            appointment_datetime,
+            booking_code,
+            total_booking_cost,
+            is_cerba_member,
+            reminder_authorization,
+            marketing_authorization,
+            transfer_reason,
+            transfer_timestamp
+        ) VALUES (
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+            $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+            $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
+            $31, $32, $33, $34, $35, $36, $37, $38, $39, $40
+        )
         ON CONFLICT (call_id) DO NOTHING
         """
 
         await connection.execute(
             query,
-            call_id,                                          # call_id (UUID)
-            interaction_id,                                   # TalkDesk interaction ID
-            phone_number,                                     # Phone number
-            assistant_id,                                     # Assistant ID (from env)
-            datetime.now(),                                   # started_at
-            "N/A",                                            # service - default N/A
-            "N/A",                                            # action - default N/A
-            "N/A",                                            # sentiment - default N/A
-            "N/A",                                            # esito_chiamata - default N/A
-            "N/A",                                            # summary - default N/A
-            "N/A",                                            # motivazione - default N/A
-            "N/A",                                            # patient_intent - default N/A
-            "N/A",                                            # transcript - default N/A
-            "N/A"                                             # region - default N/A
+            call_id,                                          # $1 call_id (UUID)
+            interaction_id or "N/A",                          # $2 interaction_id
+            phone_number or "N/A",                            # $3 phone_number
+            assistant_id,                                     # $4 assistant_id
+            datetime.now(),                                   # $5 started_at
+            "N/A",                                            # $6 service
+            "N/A",                                            # $7 action
+            "N/A",                                            # $8 sentiment
+            "N/A",                                            # $9 esito_chiamata
+            "N/A",                                            # $10 summary
+            "N/A",                                            # $11 motivazione
+            "N/A",                                            # $12 patient_intent
+            "N/A",                                            # $13 transcript
+            "N/A",                                            # $14 region
+            None,                                             # $15 ended_at (null until call ends)
+            None,                                             # $16 duration_seconds (null until call ends)
+            None,                                             # $17 cost (null until call ends)
+            0,                                                # $18 llm_token (default 0)
+            "N/A",                                            # $19 patient_first_name
+            "N/A",                                            # $20 patient_surname
+            "N/A",                                            # $21 patient_dob
+            "N/A",                                            # $22 patient_gender
+            "N/A",                                            # $23 patient_address
+            None,                                             # $24 selected_services (JSONB, null)
+            None,                                             # $25 search_terms_used (JSONB, null)
+            "N/A",                                            # $26 selected_center_uuid
+            "N/A",                                            # $27 selected_center_name
+            "N/A",                                            # $28 selected_center_address
+            "N/A",                                            # $29 selected_center_city
+            None,                                             # $30 booked_slots (JSONB, null)
+            "N/A",                                            # $31 preferred_date
+            "N/A",                                            # $32 preferred_time
+            None,                                             # $33 appointment_datetime (timestamp, null)
+            "N/A",                                            # $34 booking_code
+            None,                                             # $35 total_booking_cost (numeric, null)
+            False,                                            # $36 is_cerba_member (boolean, default false)
+            False,                                            # $37 reminder_authorization (boolean, default false)
+            False,                                            # $38 marketing_authorization (boolean, default false)
+            "N/A",                                            # $39 transfer_reason
+            None                                              # $40 transfer_timestamp (timestamp, null)
         )
 
-        logger.info(f"✅ Supabase: Initial tb_stat row created - call_id: {call_id}, "
+        logger.info(f"✅ Supabase: Initial tb_stat row created with ALL fields - call_id: {call_id}, "
                    f"interaction_id: {interaction_id}, phone: {phone_number}")
         return True
 
