@@ -143,7 +143,7 @@ async def save_call_to_supabase(
             "N/A",                                            # $11 motivazione
             "N/A",                                            # $12 patient_intent
             "N/A",                                            # $13 transcript
-            "N/A",                                            # $14 region
+            "Piemonte",                                       # $14 region (hardcoded for this bridge)
             None,                                             # $15 ended_at (null until call ends)
             None,                                             # $16 duration_seconds (null until call ends)
             None,                                             # $17 cost (null until call ends)
