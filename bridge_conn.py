@@ -160,7 +160,7 @@ async def save_call_to_supabase(
             "N/A",                                            # $24 patient_address
             None,                                             # $25 selected_services (JSONB, null)
             None,                                             # $26 search_terms_used (JSONB, null)
-            "N/A",                                            # $27 selected_center_uuid
+            None,                                             # $27 selected_center_uuid (UUID, must be null not N/A)
             "N/A",                                            # $28 selected_center_name
             "N/A",                                            # $29 selected_center_address
             "N/A",                                            # $30 selected_center_city
