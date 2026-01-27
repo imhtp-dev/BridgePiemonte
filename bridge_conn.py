@@ -117,13 +117,17 @@ async def save_call_to_supabase(
             reminder_authorization,
             marketing_authorization,
             transfer_reason,
-            transfer_timestamp
+            transfer_timestamp,
+            recording_url_stereo,
+            recording_url_user,
+            recording_url_bot,
+            recording_duration_seconds
         ) VALUES (
             $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
             $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
             $21, $22, $23, $24, $25, $26, $27, $28, $29, $30,
             $31, $32, $33, $34, $35, $36, $37, $38, $39, $40,
-            $41
+            $41, $42, $43, $44, $45
         )
         ON CONFLICT (call_id) DO NOTHING
         """
@@ -170,7 +174,11 @@ async def save_call_to_supabase(
             False,                                            # $38 reminder_authorization (boolean, default false)
             False,                                            # $39 marketing_authorization (boolean, default false)
             "N/A",                                            # $40 transfer_reason
-            None                                              # $41 transfer_timestamp (timestamp, null)
+            None,                                             # $41 transfer_timestamp (timestamp, null)
+            "N/A",                                            # $42 recording_url_stereo
+            "N/A",                                            # $43 recording_url_user
+            "N/A",                                            # $44 recording_url_bot
+            None                                              # $45 recording_duration_seconds (numeric, null)
         )
 
         logger.info(f"✅ Supabase: Initial tb_stat row created with ALL fields - call_id: {call_id}, "
