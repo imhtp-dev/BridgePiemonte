@@ -1007,8 +1007,29 @@ async def escalation(request: Request) -> Dict[str, Any]:
         else:
             logger.warning("⚠️  stream_sid not in payload")
 
+        # ✅ Always extract and log pipecat_data (even without active session)
+        # This lets us see ring group / sector / service during local testing
+        pipecat_data = None
+        if tool_calls:
+            first_tool = tool_calls[0]
+            if "function" in first_tool:
+                args = first_tool["function"].get("arguments", {})
+                if args:
+                    pipecat_data = {
+                        "action": args.get("action", "transfer"),
+                        "sentiment": args.get("sentiment", "neutral"),
+                        "duration_seconds": int(args.get("duration", "0")),
+                        "summary": args.get("summary", "richiesta di assistenza"),
+                        "service": args.get("service", "5"),
+                        "sector": args.get("sector", "info")
+                    }
+
+        # Always log what WOULD be sent to Talkdesk
+        preview_msg = build_talkdesk_message(stream_sid or "NO_STREAM", pipecat_data)
+        logger.info(f"📋 Talkdesk message preview (ring group visible even in local testing)")
+
         if not stream_sid:
-            logger.error(f"❌ ESCALATION FAILED: streamSid non trovato per call_id {call_id}")
+            logger.error(f"❌ ESCALATION: No stream_sid — local test mode, no Talkdesk delivery")
             return {"results": results}
 
         logger.info(f"✅ stream_sid presente: {stream_sid}")
@@ -1054,41 +1075,7 @@ async def escalation(request: Request) -> Dict[str, Any]:
                     logger.info(f"⏳ Waiting for Pipecat to complete...")
                     await asyncio.sleep(2)
 
-                    logger.info("=" * 80)
-                    logger.info(f"📊 Extracting call analysis from payload...")
-
-                    # ✅ NEW: Extract analysis data from toolCallList (passed by Pipecat)
-                    pipecat_data = None
-                    if tool_calls:
-                        first_tool = tool_calls[0]
-                        logger.info(f"🔍 First tool call: {json.dumps(first_tool, indent=2)}")
-
-                        if "function" in first_tool:
-                            args = first_tool["function"].get("arguments", {})
-                            logger.info(f"🔍 Function arguments: {json.dumps(args, indent=2)}")
-
-                            if args:
-                                pipecat_data = {
-                                    "action": args.get("action", "transfer"),
-                                    "sentiment": args.get("sentiment", "neutral"),
-                                    "duration_seconds": int(args.get("duration", "0")),
-                                    "summary": args.get("summary", "richiesta di assistenza"),
-                                    "service": args.get("service", "5"),
-                                    "sector": args.get("sector", "info")
-                                }
-                                logger.info(f"✅ Extracted pipecat_data:")
-                                logger.info(f"   - Action: {pipecat_data['action']}")
-                                logger.info(f"   - Sentiment: {pipecat_data['sentiment']}")
-                                logger.info(f"   - Duration: {pipecat_data['duration_seconds']}s")
-                                logger.info(f"   - Service: {pipecat_data['service']}")
-                                logger.info(f"   - Sector: {pipecat_data['sector']}")
-                                logger.info(f"   - Summary: {pipecat_data['summary'][:100]}...")
-
-                    if not pipecat_data:
-                        logger.warning(f"⚠️  No analysis in payload, using defaults")
-
-                    logger.info("=" * 80)
-
+                    # pipecat_data already extracted above — reuse it
                     # Build stop message
                     stop_msg = build_talkdesk_message(stream_sid, pipecat_data)
 
