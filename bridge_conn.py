@@ -922,8 +922,13 @@ def build_talkdesk_message(stream_sid: str, pipecat_data: Optional[Dict[str, Any
             servicex = "5"
         else:
             servicex = str(servicex).strip()
-        service = f"2|2|{servicex}"
-        logger.info(f"   Extracted: action={action}, sentiment={sentiment}, duration={duration}s, service={service}")
+        # Use sector to determine prefix: booking=1|1|x, info=2|2|x
+        sector = pipecat_data.get("sector", "info")
+        if sector == "booking":
+            service = f"1|1|{servicex}"
+        else:
+            service = f"2|2|{servicex}"
+        logger.info(f"   Extracted: action={action}, sentiment={sentiment}, duration={duration}s, service={service}, sector={sector}")
     else:
         logger.warning("⚠️  Using DEFAULT values (no pipecat_data)")
 
@@ -1068,13 +1073,15 @@ async def escalation(request: Request) -> Dict[str, Any]:
                                     "sentiment": args.get("sentiment", "neutral"),
                                     "duration_seconds": int(args.get("duration", "0")),
                                     "summary": args.get("summary", "richiesta di assistenza"),
-                                    "service": args.get("service", "5")
+                                    "service": args.get("service", "5"),
+                                    "sector": args.get("sector", "info")
                                 }
                                 logger.info(f"✅ Extracted pipecat_data:")
                                 logger.info(f"   - Action: {pipecat_data['action']}")
                                 logger.info(f"   - Sentiment: {pipecat_data['sentiment']}")
                                 logger.info(f"   - Duration: {pipecat_data['duration_seconds']}s")
                                 logger.info(f"   - Service: {pipecat_data['service']}")
+                                logger.info(f"   - Sector: {pipecat_data['sector']}")
                                 logger.info(f"   - Summary: {pipecat_data['summary'][:100]}...")
 
                     if not pipecat_data:
