@@ -463,7 +463,9 @@ class BridgeSession:
             if business_hours_string and '::' in business_hours_string:
                 parts = business_hours_string.split('::')
                 if len(parts) >= 4:
-                    status = parts[-1].strip().lower()
+                    raw_status = parts[-1].strip().lower()
+                    # Normalize: Talkdesk sends "afterhours" but agent expects "after_hours"
+                    status = "after_hours" if raw_status == "afterhours" else raw_status
                     logger.info(f"Session {self.session_id}: Extracted business status: {status}")
                     return status
             
