@@ -314,7 +314,8 @@ class PipecatConnection:
         business_status: str = "open",
         caller_phone: str = "",
         interaction_id: str = "",
-        stream_sid: str = ""
+        stream_sid: str = "",
+        ivr_path: str = ""
     ) -> Dict[str, Any]:
         """Crea una nuova connessione WebSocket con Pipecat con TUTTI i parametri"""
         try:
@@ -329,6 +330,7 @@ class PipecatConnection:
             encoded_phone = quote(caller_phone) if caller_phone else ""
             encoded_interaction = quote(interaction_id) if interaction_id else ""
             encoded_stream = quote(stream_sid) if stream_sid else ""
+            encoded_ivr = quote(ivr_path) if ivr_path else ""
 
             ws_url = (
                 f"{self.config.pipecat_server_url}?"
@@ -336,7 +338,8 @@ class PipecatConnection:
                 f"caller_phone={encoded_phone}&"
                 f"interaction_id={encoded_interaction}&"
                 f"stream_sid={encoded_stream}&"
-                f"business_status={business_status}"
+                f"business_status={business_status}&"
+                f"ivr_path={encoded_ivr}"
             )
 
             self.websocket_url = ws_url
@@ -347,6 +350,7 @@ class PipecatConnection:
             logger.info(f"  Interaction ID: {interaction_id or 'N/A'}")
             logger.info(f"  Stream SID: {stream_sid or 'N/A'}")
             logger.info(f"  Business Status: {business_status}")
+            logger.info(f"  IVR Path: {ivr_path or 'N/A'}")
             logger.info(f"  WebSocket URL: {ws_url}")
 
             # Salva i dati della sessione
@@ -356,6 +360,7 @@ class PipecatConnection:
                 'caller_phone': caller_phone,
                 'interaction_id': interaction_id,
                 'stream_sid': stream_sid,
+                'ivr_path': ivr_path,
                 'created_at': time.time()
             }
 
@@ -447,6 +452,7 @@ class BridgeSession:
         self.interaction_id = None
         self.caller_id = None
         self.business_status = None
+        self.ivr_path = ""
         
         # Buffer per messaggi ricevuti prima che Pipecat sia pronto
         self.audio_buffer = []
@@ -457,8 +463,15 @@ class BridgeSession:
             'errors': 0
         }
     
-    def extract_business_status(self, business_hours_string: str) -> str:
-        """Estrae lo status (open/close) dalla stringa business_hours"""
+    def extract_business_status_and_ivr(self, business_hours_string: str) -> tuple:
+        """Extract business status and IVR path from business_hours string.
+
+        Format: "uuid::region::ivr_path::status"
+        Example: "ea40a17d...::Piemonte::1|3|2::Open"
+
+        Returns:
+            tuple: (status, ivr_path) e.g. ("open", "1|3|2")
+        """
         try:
             if business_hours_string and '::' in business_hours_string:
                 parts = business_hours_string.split('::')
@@ -466,27 +479,29 @@ class BridgeSession:
                     raw_status = parts[-1].strip().lower()
                     # Normalize: Talkdesk sends "afterhours" but agent expects "after_hours"
                     status = "after_hours" if raw_status == "afterhours" else raw_status
-                    logger.info(f"Session {self.session_id}: Extracted business status: {status}")
-                    return status
-            
-            logger.warning(f"Session {self.session_id}: Could not extract business status from: {business_hours_string}")
-            return "close"
-            
+                    ivr_path = parts[2].strip() if len(parts) > 2 else ""
+                    logger.info(f"Session {self.session_id}: Extracted status={status}, ivr_path={ivr_path}")
+                    return status, ivr_path
+
+            logger.warning(f"Session {self.session_id}: Could not extract from business_hours: {business_hours_string}")
+            return "close", ""
+
         except Exception as e:
-            logger.error(f"Session {self.session_id}: Error extracting business status: {e}")
-            return "close"
+            logger.error(f"Session {self.session_id}: Error parsing business_hours: {e}")
+            return "close", ""
     
     async def initialize_pipecat_with_business_status(self, business_status: str):
         """Inizializza Pipecat con il business_status corretto"""
         try:
-            logger.info(f"Session {self.session_id}: Initializing Pipecat with business_status: {business_status}")
+            logger.info(f"Session {self.session_id}: Initializing Pipecat with business_status: {business_status}, ivr_path: {self.ivr_path}")
 
             # ✅ Crea la connessione Pipecat con TUTTI i parametri
             await self.pipecat_conn.create_connection(
                 business_status=business_status,
                 caller_phone=self.caller_id or "",
                 interaction_id=self.interaction_id or "",
-                stream_sid=self.stream_sid or ""
+                stream_sid=self.stream_sid or "",
+                ivr_path=self.ivr_path or ""
             )
             await self.pipecat_conn.connect()
 
@@ -664,11 +679,11 @@ class BridgeSession:
                             
                             logger.info(f"[{self.session_id}] Raw business_hours: {business_hours}")
                             logger.info(f"[{self.session_id}] Caller ID: {self.caller_id}")
-                            
-                            # Estrai lo status (open/close)
-                            self.business_status = self.extract_business_status(business_hours)
-                            
-                            logger.info(f"[{self.session_id}] Extracted business status: {self.business_status}")
+
+                            # Extract business status and IVR path
+                            self.business_status, self.ivr_path = self.extract_business_status_and_ivr(business_hours)
+
+                            logger.info(f"[{self.session_id}] Business status: {self.business_status}, IVR path: {self.ivr_path}")
                             
                             # ORA INIZIALIZZA PIPECAT con il business_status corretto
                             logger.info(f"Session {self.session_id}: Initializing Pipecat with business_status: {self.business_status}")
@@ -919,18 +934,20 @@ def build_talkdesk_message(stream_sid: str, pipecat_data: Optional[Dict[str, Any
         duration = str(int(pipecat_data.get("duration_seconds", 0)))
         cost = str(pipecat_data.get("cost", 0))
         summary = pipecat_data.get("summary", "richiesta di assistenza")
-        servicex = str(pipecat_data.get("service", "5"))
-        if servicex is None or str(servicex).strip() == "":
-            servicex = "5"
+
+        # Use queue_code if available (new agent), fall back to old sector+service logic
+        if pipecat_data.get("queue_code"):
+            service = pipecat_data["queue_code"]
         else:
-            servicex = str(servicex).strip()
-        # Use sector to determine prefix: booking=1|1|x, info=2|2|x
-        sector = pipecat_data.get("sector", "info")
-        if sector == "booking":
-            service = f"1|1|{servicex}"
-        else:
-            service = f"2|2|{servicex}"
-        logger.info(f"   Extracted: action={action}, sentiment={sentiment}, duration={duration}s, service={service}, sector={sector}")
+            # Backward compat: old agent sends service (1-5) + sector (booking/info)
+            servicex = str(pipecat_data.get("service", "5")).strip() or "5"
+            sector = pipecat_data.get("sector", "info")
+            if sector == "booking":
+                service = f"1|1|{servicex}"
+            else:
+                service = f"2|2|{servicex}"
+
+        logger.info(f"   Extracted: action={action}, sentiment={sentiment}, duration={duration}s, service={service}")
     else:
         logger.warning("⚠️  Using DEFAULT values (no pipecat_data)")
 
@@ -1022,6 +1039,8 @@ async def escalation(request: Request) -> Dict[str, Any]:
                         "sentiment": args.get("sentiment", "neutral"),
                         "duration_seconds": int(args.get("duration", "0")),
                         "summary": args.get("summary", "richiesta di assistenza"),
+                        "queue_code": args.get("queue_code", ""),
+                        # Backward compat: keep old fields for fallback
                         "service": args.get("service", "5"),
                         "sector": args.get("sector", "info")
                     }
